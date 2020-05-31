@@ -1,4 +1,4 @@
-use ethereum_types::{Address, H256, U256};
+use ethereum_types::{Address, Bloom, H256, U256};
 use keccak_hash::keccak;
 use rlp::{DecoderError, Rlp};
 
@@ -68,5 +68,53 @@ impl rlp::Decodable for UnverifiedTransaction {
             s: d.val_at(8)?,
             hash,
         })
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub struct Header {
+    parent_hash: H256,
+    timestamp: u64,
+    number: U256,
+    author: Address,
+    transactions_root: H256,
+    uncles_hash: H256,
+    extra_data: Bytes,
+    state_root: H256,
+    receipts_root: H256,
+    log_bloom: Bloom,
+    gas_used: U256,
+    gas_limit: U256,
+    difficulty: U256,
+    seal: Vec<Bytes>,
+    hash: Option<H256>,
+}
+
+impl rlp::Decodable for Header {
+    fn decode(r: &Rlp) -> Result<Self, DecoderError> {
+        let mut blockheader = Header {
+            parent_hash: r.val_at(0)?,
+            uncles_hash: r.val_at(1)?,
+            author: r.val_at(2)?,
+            state_root: r.val_at(3)?,
+            transactions_root: r.val_at(4)?,
+            receipts_root: r.val_at(5)?,
+            log_bloom: r.val_at(6)?,
+            difficulty: r.val_at(7)?,
+            number: r.val_at(8)?,
+            gas_limit: r.val_at(9)?,
+            gas_used: r.val_at(10)?,
+            timestamp: r.val_at(11)?,
+            extra_data: r.val_at(12)?,
+            seal: vec![],
+            hash: keccak(r.as_raw()).into(),
+        };
+
+        for i in 13..r.item_count()? {
+            blockheader.seal.push(r.at(i)?.as_raw().to_vec().into())
+        }
+
+        Ok(blockheader)
     }
 }
