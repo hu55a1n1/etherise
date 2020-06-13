@@ -16,6 +16,8 @@ impl EthRlp<'_> {
         match self.0.item_count() {
             Ok(2) => self.to_json_trie_leaf_or_ext(),
             Ok(3) => self.to_json_log(),
+            Ok(5) | Ok(4) if !self.0.at(3)?.is_list() => self.to_json_account(),
+            Ok(4) if self.0.at(3)?.is_list() => self.to_json_receipt(),
             Ok(9) => self.to_json_tx(),
             Ok(14..=16) => self.to_json_blockheader(),
             Ok(17) => self.to_json_trie_branch(),
@@ -50,6 +52,34 @@ impl EthRlp<'_> {
         }
         Ok(trie_ext_leaf)
     }
+
+    fn to_json_account(&self) -> Result<Value, DecoderError> {
+        let mut account = json!({
+            "nonce": self.0.val_at::<U256>(0)?,
+            "balance": self.0.val_at::<U256>(1)?,
+            "storage_root": self.0.val_at::<H256>(2)?,
+            "code_hash": self.0.val_at::<H256>(3)?,
+        });
+        if self.0.item_count() == Ok(5) {
+            account["code_version"] = json!(self.0.val_at::<H256>(4)?);
+        }
+        Ok(account)
+    }
+
+    fn to_json_receipt(&self) -> Result<Value, DecoderError> {
+        let mut receipt = json!({
+            "gas_used": self.0.val_at::<U256>(0)?,
+            "log_bloom": self.0.val_at::<Bloom>(1)?,
+        });
+        let rlp_logs = self.0.at(2)?;
+        let mut logs = vec![];
+        for i in 0..rlp_logs.item_count()? {
+            logs.push(EthRlp::new(rlp_logs.at(i)?.as_raw()).to_json_log()?);
+        }
+        receipt["logs"] = json!(logs);
+        Ok(receipt)
+    }
+
     fn to_json_tx(&self) -> Result<Value, DecoderError> {
         let mut tx = json!({
             "nonce": self.0.val_at::<U256>(0)?,
