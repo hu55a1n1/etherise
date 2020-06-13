@@ -1,10 +1,9 @@
 use std::error;
 
 use clap::{App, Arg, SubCommand};
+use rustc_hex::FromHex;
 
 use etherise::eth1::*;
-use rlp::decode;
-use rustc_hex::FromHex;
 
 fn main() -> Result<(), Box<dyn error::Error>> {
     let matches = App::new("etherise")
@@ -22,9 +21,10 @@ fn main() -> Result<(), Box<dyn error::Error>> {
 
     if let Some(matches) = matches.subcommand_matches("rlp") {
         if let Some(hex) = matches.value_of("decode") {
-            let bytes = FromHex::from_hex(&hex[2..]).unwrap();
-            let rlp = decode::<UnverifiedTransaction>(bytes.as_slice())?;
-            println!("{:#?}", rlp);
+            let bytes = &hex[2..].from_hex().unwrap();
+            let rlp = EthRlp::new(bytes.as_slice());
+            let err = rlp.to_json().unwrap();
+            println!("{}", err);
         }
     }
 
