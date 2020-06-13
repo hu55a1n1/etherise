@@ -14,9 +14,11 @@ impl EthRlp<'_> {
 
     pub fn to_json(&self) -> Result<Value, DecoderError> {
         match self.0.item_count() {
+            Ok(2) => self.to_json_trie_leaf_or_ext(),
             Ok(3) => self.to_json_log(),
             Ok(9) => self.to_json_tx(),
             Ok(14..=16) => self.to_json_blockheader(),
+            Ok(17) => self.to_json_trie_branch(),
             _ => Err(DecoderError::Custom("unknown RLP data"))
         }
     }
@@ -34,6 +36,19 @@ impl EthRlp<'_> {
         }
         log["topics"] = json!(topics);
         Ok(log)
+    }
+
+    fn to_json_trie_leaf_or_ext(&self) -> Result<Value, DecoderError> {
+        let mut trie_ext_leaf = json!({
+            "path": self.0.val_at::<Vec<u8>>(0)?.hex_display().to_string(),
+        });
+        let kv = self.0.val_at::<Vec<u8>>(1)?;
+        if kv[0] & 32 != 0 {
+            trie_ext_leaf["value"] = json!(kv.hex_display().to_string());
+        } else {
+            trie_ext_leaf["key"] = json!(kv.hex_display().to_string());
+        }
+        Ok(trie_ext_leaf)
     }
     fn to_json_tx(&self) -> Result<Value, DecoderError> {
         let mut tx = json!({
@@ -84,4 +99,26 @@ impl EthRlp<'_> {
         Ok(blockheader)
     }
 
+    fn to_json_trie_branch(&self) -> Result<Value, DecoderError> {
+        let trie_branch = json!({
+            "0": self.0.val_at::<H256>(0)?,
+            "1": self.0.val_at::<H256>(1)?,
+            "2": self.0.val_at::<H256>(2)?,
+            "3": self.0.val_at::<H256>(3)?,
+            "4": self.0.val_at::<H256>(4)?,
+            "5": self.0.val_at::<H256>(5)?,
+            "6": self.0.val_at::<H256>(6)?,
+            "7": self.0.val_at::<H256>(7)?,
+            "8": self.0.val_at::<H256>(8)?,
+            "9": self.0.val_at::<H256>(9)?,
+            "a": self.0.val_at::<H256>(10)?,
+            "b": self.0.val_at::<H256>(11)?,
+            "c": self.0.val_at::<H256>(12)?,
+            "d": self.0.val_at::<H256>(13)?,
+            "e": self.0.val_at::<H256>(14)?,
+            "f": self.0.val_at::<H256>(15)?,
+            "value": self.0.val_at::<Vec<u8>>(16)?.hex_display().to_string(),
+        });
+        Ok(trie_branch)
+    }
 }
